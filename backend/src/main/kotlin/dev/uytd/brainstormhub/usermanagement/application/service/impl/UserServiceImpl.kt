@@ -2,6 +2,7 @@ package dev.uytd.brainstormhub.usermanagement.application.service.impl
 
 import dev.uytd.brainstormhub.usermanagement.application.service.UserService
 import dev.uytd.brainstormhub.usermanagement.domain.User
+import dev.uytd.brainstormhub.usermanagement.domain.exception.UserAlreadyExistsException
 import dev.uytd.brainstormhub.usermanagement.infrastructure.repository.UserRepository
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
@@ -32,29 +33,25 @@ class UserServiceImpl(
         email: String,
         password: String,
         fullName: String?
-    ): Mono<User> = mono{
-        val user = User(
-            email = email,
-            passwordHash = passwordEncoder.encode(password),
-            fullName = fullName
-        )
-        // Giả sử userRepository.save trả về Mono<User>
-         userRepository.save(user)
+    ): Mono<User>  {
+        // FIX 2: Use a clean, single reactive chain
+        return userRepository.findByEmail(email)
+            .flatMap { Mono.error<User> { UserAlreadyExistsException(email) } }
+            .switchIfEmpty( mono{
+                val passwordHash = passwordEncoder.encode(password)
+                val user = User(email=email, passwordHash=passwordHash, fullName=fullName)
+                 userRepository.save(user)
+            })
     }
-
     override suspend fun login(
         email: String,
         password: String
-    ): Mono<User> {
+    ): Mono<String> {
        return  userRepository.findByEmail(email)
-            .switchIfEmpty(Mono.error(Exception("User not found")))
-            .flatMap { user ->
-                if (passwordEncoder.matches(password, user.passwordHash)) {
-                    Mono.just(user) // Trả về user nếu password đúng
-                } else {
-                    Mono.error(Exception("Invalid credentials"))
-                }
-            }
+           .filter { user -> passwordEncoder.matches(password, user.passwordHash) }
+           .map { user -> generateJwtToken(user.userId, user.email) }
+           .switchIfEmpty(Mono.error(IllegalArgumentException("Invalid credentials")))
+
     }
 
     // FIX 5: Cập nhật hàm tạo token để dùng SecretKey

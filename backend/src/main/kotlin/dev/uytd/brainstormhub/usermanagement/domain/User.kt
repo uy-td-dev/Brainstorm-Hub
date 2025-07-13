@@ -14,15 +14,14 @@ data class User(
     val passwordHash: String,
     val fullName: String?,
     val createdAt: Instant = Instant.now(),
-): Persistable<UUID> { // <-- Kế thừa Persistable
+): Persistable<UUID> {
 
-    @Transient // <-- Đánh dấu để Spring không lưu trường này vào CSDL
+    @Transient
     private var isNewUser: Boolean = true
 
     override fun getId(): UUID? = userId
 
     override fun isNew(): Boolean = this.isNewUser || userId == null
 
-    // Hàm này giúp Spring biết đối tượng không còn mới sau khi lưu
 
 }

@@ -19,7 +19,7 @@ class UserController(private val userService: UserService) {
     }
 
     @PostMapping("/login")
-     suspend fun login(@RequestBody user: RegisterRequest): Mono<User>  {
+     suspend fun login(@RequestBody user: RegisterRequest): Mono<String>  {
          return userService.login(user.email, user.password)
     }
 }
